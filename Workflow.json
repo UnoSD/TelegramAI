@@ -10,7 +10,7 @@
                         },
                         "host": {
                             "connection": {
-                                "name": "@parameters('$connections')['$$BLOBCONNECTIONNAME$$']['connectionId']"
+                                "name": "@parameters('$connections')['$$SACONNECTIONNAME$$']['connectionId']"
                             }
                         },
                         "method": "delete",
@@ -46,7 +46,7 @@
                         },
                         "host": {
                             "connection": {
-                                "name": "@parameters('$connections')['$$BLOBCONNECTIONNAME$$']['connectionId']"
+                                "name": "@parameters('$connections')['$$SACONNECTIONNAME$$']['connectionId']"
                             }
                         },
                         "method": "post",

@@ -40,6 +40,9 @@
                     "values": {
                         "accountName": {
                             "value": "$$SANAME$$"
+                        },
+                        "accessKey": {
+                            "value": "$$SAKEY$$"
                         }
                     }
                 },

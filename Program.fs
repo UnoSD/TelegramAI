@@ -143,41 +143,31 @@ Deployment.run (fun () ->
     let saConnectionName =
         $"sac-tai-{Deployment.Instance.StackName}-{Region.shortName}-001"
     
-    let kvConnectionTemplate =
+    let connectionsTemplate =
         output {
             let! vaultName = keyVault.Name
             let! storageName = storage.Name
+            let! lsak =
+                ListStorageAccountKeys.Invoke(ListStorageAccountKeysInvokeArgs(
+                    AccountName = storageName,
+                    ResourceGroupName = rg.Name))
             
             return File.ReadAllText("Connection.json")
                        .Replace("$$SANAME$$", storageName)
-                       .Replace("$$BLOBCONNECTIONNAME$$", saConnectionName)
+                       .Replace("$$SAKEY$$", lsak.Keys |> Seq.map (fun x -> x.Value) |> Seq.head)
+                       .Replace("$$SACONNECTIONNAME$$", saConnectionName)
                        .Replace("$$CONNECTIONNAME$$", connectionName)
                        .Replace("$$LOCATION$$", region)
                        .Replace("$$VAULTNAME$$", vaultName)
         } |> InputJson.op_Implicit
     
-    let kvConnection =
-        (*connection {
-            name          $"kvc-tai-{Deployment.Instance.StackName}-{Region.shortName}-001"
-            resourceGroup rg.Name
-            
-            connectionDefinition {
-                displayName                "Key Vault connection"
-                parameterValueType         "Alternative"                  // Not available on the API definition
-                alternativeParameterValues [ "vaultName", keyVault.Name ] // Not available on the API definition
-                
-                apiReference {
-                    name "keyvault"
-                    id   $"/subscriptions/{azureConfig.SubscriptionId}/providers/Microsoft.Web/locations/{region}/managedApis/keyvault"
-                }
-            }
-        }*)
+    let connections =
         deployment {
-            name                 $"kvc-tai-{Deployment.Instance.StackName}-{Region.shortName}-001"
+            name                 $"c-tai-{Deployment.Instance.StackName}-{Region.shortName}-001"
             resourceGroup        rg.Name
             
             deploymentProperties { 
-                template kvConnectionTemplate
+                template connectionsTemplate
                 
                 DeploymentMode.Incremental
             }
@@ -194,8 +184,9 @@ Deployment.run (fun () ->
             let usernames : string list = Config().GetObject("accept-chat-usernames")
             
             return File.ReadAllText("Workflow.json")
+                       .Replace("$$OAIURL$$", config["openai-url"])
                        .Replace("$$SANAME$$", saName)
-                       .Replace("$$BLOBCONNECTIONNAME$$", saConnectionName)
+                       .Replace("$$SACONNECTIONNAME$$", saConnectionName)
                        .Replace("$$CONNECTIONNAME$$", connectionName)            
                        .Replace("$$BOTSECRET$$", botSecretName)
                        .Replace("$$SPEECHSECRET$$", speechSecretName)
@@ -204,14 +195,15 @@ Deployment.run (fun () ->
                        .Replace("$$USERNAMES$$", String.Join(", ", usernames |> List.map (fun u -> $"'{u}'")))
         } |> InputJson.op_Implicit
 
-    let kvConnectionParameter =
+    let connectionParameters =
         output {
             let! rgName = rg.Name
-            let connectionId = $"/subscriptions/{azureConfig.SubscriptionId}/resourceGroups/{rgName}/providers/Microsoft.Web/connections/{connectionName}"
-        
+            let saConnectionId = $"/subscriptions/{azureConfig.SubscriptionId}/resourceGroups/{rgName}/providers/Microsoft.Web/connections/{saConnectionName}"
+            let kvConnectionId = $"/subscriptions/{azureConfig.SubscriptionId}/resourceGroups/{rgName}/providers/Microsoft.Web/connections/{connectionName}"
+            
             return $"""{{
     "{connectionName}": {{
-        "connectionId": "{connectionId}",
+        "connectionId": "{kvConnectionId}",
         "connectionName": "{connectionName}",
         "connectionProperties": {{
             "authentication": {{
@@ -219,20 +211,25 @@ Deployment.run (fun () ->
             }}
         }},
         "id": "/subscriptions/{azureConfig.SubscriptionId}/providers/Microsoft.Web/locations/{region}/managedApis/keyvault"
+    }},
+    "{saConnectionName}": {{
+        "connectionId": "{saConnectionId}",
+        "connectionName": "{saConnectionName}",
+        "id": "/subscriptions/{azureConfig.SubscriptionId}/providers/Microsoft.Web/locations/{region}/managedApis/azureblob"
     }}
 }}""" |> InputJson.op_Implicit
         }
-    
+
     let la =
         workflow {
             name                   $"logic-tai-{Deployment.Instance.StackName}-{Region.shortName}-001"
             resourceGroup          rg.Name
             definition             workflowDefinition
-            dependsOn              kvConnection
+            dependsOn              connections
             managedServiceIdentity { resourceType ManagedServiceIdentityType.SystemAssigned }
             
             parameters [
-                "$connections", workflowParameter { value kvConnectionParameter }
+                "$connections", workflowParameter { value connectionParameters }
             ]
         }
     
