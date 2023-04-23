@@ -209,10 +209,7 @@
                                     }
                                 },
                                 "required": [
-                                    "text",
-                                    "index",
-                                    "logprobs",
-                                    "finish_reason"
+                                    "text"
                                 ],
                                 "type": "object"
                             },
