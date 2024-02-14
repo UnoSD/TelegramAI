@@ -25,7 +25,7 @@
                 },
                 "Generate_speech_from_result_text": {
                     "inputs": {
-                        "body": "<speak version='1.0' xml:lang='en-US'><voice xml:lang='it-IT' xml:gender='Female'\n    name='it-IT-ElsaNeural'>\n        @{items('For_each_Open_AI_choices_result')?['text']}\n</voice></speak>",
+                        "body": "<speak version='1.0' xml:lang='en-US'><voice xml:lang='it-IT' xml:gender='Female'\n    name='it-IT-ElsaNeural'>\n        @{items('For_each_Open_AI_choices_result')?['message']?['content']}\n</voice></speak>",
                         "headers": {
                             "Content-Type": "application/ssml+xml",
                             "Ocp-Apim-Subscription-Key": "@body('Get_Speech_secret')?['value']",
@@ -193,42 +193,65 @@
             "inputs": {
                 "content": "@body('Send_transcription_as_Open_AI_prompt')",
                 "schema": {
+                    "type": "object",
                     "properties": {
+                        "id": {
+                            "type": "string"
+                        },
+                        "object": {
+                            "type": "string"
+                        },
+                        "created": {
+                            "type": "integer"
+                        },
+                        "model": {
+                            "type": "string"
+                        },
+                        "usage": {
+                            "type": "object",
+                            "properties": {
+                                "prompt_tokens": {
+                                    "type": "integer"
+                                },
+                                "completion_tokens": {
+                                    "type": "integer"
+                                },
+                                "total_tokens": {
+                                    "type": "integer"
+                                }
+                            }
+                        },
                         "choices": {
+                            "type": "array",
                             "items": {
+                                "type": "object",
                                 "properties": {
+                                    "message": {
+                                        "type": "object",
+                                        "properties": {
+                                            "role": {
+                                                "type": "string"
+                                            },
+                                            "content": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    },
                                     "finish_reason": {
                                         "type": "string"
                                     },
                                     "index": {
                                         "type": "integer"
-                                    },
-                                    "logprobs": {},
-                                    "text": {
-                                        "type": "string"
                                     }
                                 },
                                 "required": [
-                                    "text"
-                                ],
-                                "type": "object"
-                            },
-                            "type": "array"
-                        },
-                        "created": {
-                            "type": "integer"
-                        },
-                        "id": {
-                            "type": "string"
-                        },
-                        "model": {
-                            "type": "string"
-                        },
-                        "object": {
-                            "type": "string"
+                                    "message",
+                                    "finish_reason",
+                                    "index"
+                                ]
+                            }
                         }
-                    },
-                    "type": "object"
+                    }
                 }
             },
             "runAfter": {
@@ -709,7 +732,16 @@
             "inputs": {
                 "body": {
                     "max_tokens": 300,
-                    "prompt": "@{first(body('Parse_transcription_JSON')?['combinedRecognizedPhrases'])?['display']}"
+                    "temperature": 0.7,
+                    "frequency_penalty": 0,
+                    "presence_penalty": 0,
+                    "top_p": 0.95,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": "@{first(body('Parse_transcription_JSON')?['combinedRecognizedPhrases'])?['display']}"
+                        }
+                    ]
                 },
                 "headers": {
                     "Content-Type": "application/json",
@@ -772,7 +804,7 @@
                     "Ocp-Apim-Subscription-Key": "@body('Get_Speech_secret')?['value']"
                 },
                 "method": "POST",
-                "uri": "https://westeurope.api.cognitive.microsoft.com/speechtotext/v3.0/transcriptions"
+                "uri": "https://westeurope.api.cognitive.microsoft.com/speechtotext/v3.1/transcriptions"
             },
             "runAfter": {
                 "Parse_Telegram_file_response": [

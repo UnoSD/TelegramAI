@@ -1,2 +1,4 @@
 name: TelegramAI
 runtime: dotnet
+backend:
+  url: file://~/.pulumi/project-stacks/TelegramAI
